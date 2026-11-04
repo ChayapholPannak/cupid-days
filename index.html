@@ -213,6 +213,17 @@
     font-family:'Mali',cursive;font-size:1rem;color:var(--ink);background:#FFFAFC;
   }
   .field input:focus{outline:3px solid var(--blush-2);}
+  .field textarea{
+    width:100%;border:2px solid #FFE0EC;border-radius:14px;padding:11px 14px;
+    font-family:'Mali',cursive;font-size:.95rem;color:var(--ink);background:#FFFAFC;
+    resize:vertical;line-height:1.6;min-height:90px;
+  }
+  .field textarea:focus{outline:3px solid var(--blush-2);}
+  .setup-sec{
+    margin:22px 0 12px;padding-top:14px;border-top:2px dashed var(--blush-2);
+    font-weight:700;color:var(--berry-deep);font-size:.98rem;
+  }
+  .setup-hint{font-weight:500;color:var(--ink-soft);font-size:.78rem;}
   .setup-actions{display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
   .btn-ghost{
     background:transparent;border:2px solid var(--blush-2);color:var(--berry-deep);cursor:pointer;
@@ -417,6 +428,27 @@
           <label for="inTime">เวลา (ระบุก็ได้ ใส่เที่ยงวันให้เลยถ้าไม่รู้)</label>
           <input type="time" id="inTime" value="12:00">
         </div>
+        <div class="setup-sec">✨ ข้อความเกมสารภาพรัก "ใช่ / ไม่" — แก้ได้หมด</div>
+        <div class="field">
+          <label for="inQ">คำถามในกล่อง <span class="setup-hint">(ว่างไว้ = ค่าเริ่มต้น)</span></label>
+          <input type="text" id="inQ" maxlength="80" placeholder="จะรักเค้าตลอดไปไหม?" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="inSub">ข้อความโปรยใต้คำถาม</label>
+          <input type="text" id="inSub" maxlength="120" placeholder="เค้าถามจริงๆ นะ… ตอบดีๆ หน่อย 🥺" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="inYes">ข้อความปุ่มฝั่งตอบรับ</label>
+          <input type="text" id="inYes" maxlength="24" placeholder="ใช่ 💗" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="inNo">ข้อความปุ่มฝั่งไม่รับ <span class="setup-hint">(ปุ่มนี้จะหนีนิ้วอยู่แล้ว)</span></label>
+          <input type="text" id="inNo" maxlength="24" placeholder="ไม่" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="inPromises">คำสัญญา — บรรทัดละ 1 ข้อ <span class="setup-hint">(ว่างไว้ = ใช้ชุดค่าเริ่มต้น 8 ข้อ)</span></label>
+          <textarea id="inPromises" rows="4" maxlength="1500" placeholder="สัญญาว่าจะฟังเธอทุกวัน ไม่มีข้าม 🎧&#10;สัญญาว่าความหวานจะไม่ลดตามปี 🍬&#10;สัญญาว่าจะพาไปกินของอร่อยที่เธอตะโกนว่า นั่น! 🍰"></textarea>
+        </div>
         <div class="setup-actions">
           <button type="submit" class="btn-pill">เริ่มนับวันรัก 🚀</button>
           <button type="button" class="btn-ghost" id="btnCancelSetup">ปิดหน้าต่างนี้</button>
@@ -432,11 +464,11 @@
   const STORE = "loveCounter.v1";
 
   /* ---------- state ---------- */
-  let data = { me:"", partner:"", date:"", time:"12:00", letter:"", promises:0 };
+  let data = { me:"", partner:"", date:"", time:"12:00", letter:"", promises:0, q:"", s:"", y:"", n:"", prTxt:"" };
   try { const s = localStorage.getItem(STORE); if (s) data = Object.assign(data, JSON.parse(s)); } catch(e){}
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify(data)); } catch(e){} };
 
-  const promiseLines = [
+  const DEFAULT_PROMISES = [
     "สัญญาว่าจะฟังเธอทุกวัน ไม่มีข้าม 🎧",
     "สัญญาว่าความหวานจะไม่ลดตามปีที่เพิ่มขึ้น 🍬",
     "สัญญาว่าจะเป็นคนแรกที่บอกว่า 'ทำได้ไปด้วย' 💪",
@@ -446,6 +478,11 @@
     "สัญญาว่าจะกระซิบคำว่า 'ขอบคุณที่อยู่ด้วยกัน' บ่อยๆ 🫶",
     "สัญญาว่าปีที่ 10-20-50 ก็ยังถามว่า 'เป็นแฟนกันไหม' 💍",
   ];
+  function getPromises(){
+    const lines = (data.prTxt || "").split("\n").map(s => s.trim()).filter(Boolean);
+    return lines.length ? lines : DEFAULT_PROMISES;
+  }
+  let PROMISES = DEFAULT_PROMISES;
 
   /* ---------- encode/decode ลิงก์แชร์ ---------- */
   function b64urlEncode(str){
@@ -459,15 +496,21 @@
   }
   function buildHash(d){
     if (!d.date) return "";
-    const compact = JSON.stringify({v:1, m:d.me, p:d.partner, d:d.date, t:d.time, l:d.letter});
-    return "#d=" + b64urlEncode(compact);
+    const compact = {v:1, m:d.me, p:d.partner, d:d.date, t:d.time, l:d.letter};
+    if (d.q) compact.q = d.q;
+    if (d.s) compact.s = d.s;
+    if (d.y) compact.y = d.y;
+    if (d.n) compact.n = d.n;
+    if (d.prTxt) compact.pr = d.prTxt;
+    return "#d=" + b64urlEncode(JSON.stringify(compact));
   }
   function readLinkHash(){
     if (!location.hash || location.hash.indexOf("#d=") !== 0) return null;
     try {
       const o = JSON.parse(b64urlDecode(location.hash.slice(3)));
       if (!o || !o.d) return null;
-      return { me:o.m||"", partner:o.p||"", date:o.d, time:o.t||"12:00", letter:o.l||"", promises:0 };
+      return { me:o.m||"", partner:o.p||"", date:o.d, time:o.t||"12:00", letter:o.l||"",
+               q:o.q||"", s:o.s||"", y:o.y||"", n:o.n||"", prTxt:o.pr||"", promises:0 };
     } catch(e){ return null; }
   }
   const fromLink = readLinkHash();
@@ -602,9 +645,12 @@
 
   /* ---------- setup ---------- */
   const setupOverlay = $("setupOverlay");
-  function openSetup(){ 
+  function openSetup(){
     $("inMe").value = data.me; $("inPartner").value = data.partner;
     $("inDate").value = data.date; $("inTime").value = data.time || "12:00";
+    $("inQ").value = data.q || ""; $("inSub").value = data.s || "";
+    $("inYes").value = data.y || ""; $("inNo").value = data.n || "";
+    $("inPromises").value = data.prTxt || "";
     setupOverlay.classList.add("show"); setTimeout(()=>$("inMe").focus(),100);
   }
   $("btnSettings").addEventListener("click", openSetup);
@@ -615,6 +661,11 @@
     data.partner = $("inPartner").value.trim();
     data.date = $("inDate").value;
     data.time = $("inTime").value || "12:00";
+    data.q = $("inQ").value.trim();
+    data.s = $("inSub").value.trim();
+    data.y = $("inYes").value.trim();
+    data.n = $("inNo").value.trim();
+    data.prTxt = $("inPromises").value;
     setupOverlay.classList.remove("show");
     $("giftBanner").classList.remove("show");
     commitLink(28);
@@ -654,12 +705,22 @@
   let yesScale = 1, noDodges = 0, promiseIdx = 0;
   const noTexts = ["ไม่","ไม่…","ไม่ยอมอ่ะ 🙈","หนีไม่พ้นหรอก~","โอเค กดไม่ได้หรอก 🥺"];
 
+  function applyModalTexts(){
+    $("askTitle").textContent = data.q || "จะรักเค้าตลอดไปไหม?";
+    $("askSub").textContent = data.s || "เค้าถามจริงๆ นะ… ตอบดีๆ หน่อย 🥺";
+    btnYes.textContent = data.y || "ใช่ 💗";
+    noTexts[0] = data.n || "ไม่";
+  }
+
   function openModal(){
     yesScale = 1; noDodges = 0;
+    PROMISES = getPromises();
     btnYes.style.transform = ""; btnNo.style.transform = ""; btnNo.style.position=""; btnNo.style.left=""; btnNo.style.top="";
-    btnNo.textContent = "ไม่"; promiseIdx = Math.min(data.promises || 0, promiseLines.length);
+    applyModalTexts();
+    btnNo.style.transform = ""; btnNo.textContent = noTexts[0];
+    promiseIdx = Math.min(data.promises || 0, PROMISES.length);
     /* เคยกดจบสัญญามาก่อน → เปิดหน้าสัญญาสำเร็จเลย */
-    if (promiseIdx >= promiseLines.length){
+    if (promiseIdx >= PROMISES.length){
       askWrap.style.display = "none"; finalMsg.classList.add("show");
     } else {
       askWrap.style.display = ""; finalMsg.classList.remove("show");
@@ -707,8 +768,8 @@
   btnYes.addEventListener("click", () => {
     btnYes.classList.add("press");
     setTimeout(()=>btnYes.classList.remove("press"), 180);
-    if (promiseIdx < promiseLines.length){
-      promiseBox.textContent = promiseLines[promiseIdx];
+    if (promiseIdx < PROMISES.length){
+      promiseBox.textContent = PROMISES[promiseIdx];
       promiseBox.classList.remove("show"); void promiseBox.offsetWidth;
       promiseBox.classList.add("show");
       promiseIdx++;
@@ -716,10 +777,10 @@
       yesScale += 0.13;
       btnYes.style.transform = "scale(" + yesScale + ")";
       spawnHeartRain(8);
-      if (promiseIdx < promiseLines.length){
-        $("askSub").textContent = "เก่งมาก! คำสัญญาที่ " + promiseIdx + " จาก " + promiseLines.length + " 🔒 (กดอีกไปเรื่อยๆ)";
+      if (promiseIdx < PROMISES.length){
+        $("askSub").textContent = "เก่งมาก! คำสัญญาที่ " + promiseIdx + " จาก " + PROMISES.length + " 🔒 (กดอีกไปเรื่อยๆ)";
       }
-      if (promiseIdx >= promiseLines.length){
+      if (promiseIdx >= PROMISES.length){
         setTimeout(() => { askWrap.style.display="none"; finalMsg.classList.add("show"); spawnHeartRain(70); }, 1100);
       }
     }
@@ -727,7 +788,7 @@
   /* อ่านสัญญาทั้งหมด */
   $("btnAgain").addEventListener("click", () => {
     finalMsg.classList.remove("show"); askWrap.style.display="";
-    promiseBox.innerHTML = promiseLines.slice(0, promiseIdx).join("<br>");
+    promiseBox.innerHTML = PROMISES.slice(0, promiseIdx).join("<br>");
     promiseBox.classList.add("show");
     yesScale = 1 + promiseIdx * 0.13;
     btnYes.style.transform = "scale(" + yesScale + ")";
